@@ -30,6 +30,8 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
+#include <sys/select.h>
 #include <X11/cursorfont.h>
 #include <X11/keysym.h>
 #include <X11/Xatom.h>
@@ -118,6 +120,7 @@ struct Monitor {
 	int by;               /* bar geometry */
 	int mx, my, mw, mh;   /* screen size */
 	int wx, wy, ww, wh;   /* window area  */
+	int gappx;            /* gaps between windows */
 	unsigned int seltags;
 	unsigned int sellt;
 	unsigned int tagset[2];
@@ -199,6 +202,7 @@ static void sendmon(Client *c, Monitor *m);
 static void setclientstate(Client *c, long state);
 static void setfocus(Client *c);
 static void setfullscreen(Client *c, int fullscreen);
+static void setgaps(const Arg *arg);
 static void setlayout(const Arg *arg);
 static void setmfact(const Arg *arg);
 static void setup(void);
@@ -640,6 +644,7 @@ createmon(void)
 	m->nmaster = nmaster;
 	m->showbar = showbar;
 	m->topbar = topbar;
+	m->gappx = gappx;
 	m->lt[0] = &layouts[0];
 	m->lt[1] = &layouts[1 % LENGTH(layouts)];
 	strncpy(m->ltsymbol, layouts[0].symbol, sizeof m->ltsymbol);
@@ -702,6 +707,9 @@ drawbar(Monitor *m)
 	int boxw = drw->fonts->h / 6 + 2;
 	unsigned int i, occ = 0, urg = 0;
 	Client *c;
+	char bat_text[50] = {0};
+	FILE *fp;
+	long bat_cap;
 
 	if (!m->showbar)
 		return;
@@ -711,6 +719,22 @@ drawbar(Monitor *m)
 		drw_setscheme(drw, scheme[SchemeNorm]);
 		tw = TEXTW(stext) - lrpad + 2; /* 2px right padding */
 		drw_text(drw, m->ww - tw, 0, tw, bh, 0, stext, 0);
+
+		/* battery */
+		fp = fopen("/sys/class/power_supply/BAT0/capacity", "r");
+		if (fp) {
+			fscanf(fp, "%ld", &bat_cap);
+			fclose(fp);
+			fp = fopen("/sys/class/power_supply/BAT0/status", "r");
+			if (fp) {
+				fscanf(fp, "%s", bat_text);
+				fclose(fp);
+				snprintf(bat_text + strlen(bat_text), sizeof(bat_text) - strlen(bat_text), " %ld%%", bat_cap);
+				int bat_w = TEXTW(bat_text);
+				drw_text(drw, m->ww - tw - bat_w, 0, bat_w, bh, 0, bat_text, 0);
+				tw += bat_w;
+			}
+		}
 	}
 
 	for (c = m->clients; c; c = c->next) {
@@ -1384,9 +1408,26 @@ run(void)
 	XEvent ev;
 	/* main event loop */
 	XSync(dpy, False);
-	while (running && !XNextEvent(dpy, &ev))
-		if (handler[ev.type])
-			handler[ev.type](&ev); /* call handler */
+	while (running) {
+		fd_set fds;
+		struct timeval tv;
+		int xfd = ConnectionNumber(dpy);
+		FD_ZERO(&fds);
+		FD_SET(xfd, &fds);
+		tv.tv_sec = 1;
+		tv.tv_usec = 0;
+
+		int num_fds = select(xfd + 1, &fds, NULL, NULL, &tv);
+		if (num_fds > 0) {
+			while(XPending(dpy)) {
+				XNextEvent(dpy, &ev);
+				if (handler[ev.type])
+					handler[ev.type](&ev); /* call handler */
+			}
+		} else if (num_fds == 0) {
+			updatestatus();
+		}
+	}
 }
 
 void
@@ -1504,6 +1545,16 @@ setfullscreen(Client *c, int fullscreen)
 		resizeclient(c, c->x, c->y, c->w, c->h);
 		arrange(c->mon);
 	}
+}
+
+void
+setgaps(const Arg *arg)
+{
+	if ((arg->i == 0) || (selmon->gappx + arg->i < 0))
+		selmon->gappx = 0;
+	else
+		selmon->gappx += arg->i;
+	arrange(selmon);
 }
 
 void
@@ -1696,18 +1747,18 @@ tile(Monitor *m)
 	if (n > m->nmaster)
 		mw = m->nmaster ? m->ww * m->mfact : 0;
 	else
-		mw = m->ww;
-	for (i = my = ty = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++)
+		mw = m->ww - m->gappx;
+	for (i = 0, my = ty = m->gappx, c = nexttiled(m->clients); c; c = nexttiled(c->next), i++)
 		if (i < m->nmaster) {
-			h = (m->wh - my) / (MIN(n, m->nmaster) - i);
-			resize(c, m->wx, m->wy + my, mw - (2*c->bw), h - (2*c->bw), 0);
-			if (my + HEIGHT(c) < m->wh)
-				my += HEIGHT(c);
+			h = (m->wh - my) / (MIN(n, m->nmaster) - i) - m->gappx;
+			resize(c, m->wx + m->gappx, m->wy + my, mw - (2*c->bw) - m->gappx, h - (2*c->bw), 0);
+			if (my + HEIGHT(c) + m->gappx < m->wh)
+				my += HEIGHT(c) + m->gappx;
 		} else {
-			h = (m->wh - ty) / (n - i);
-			resize(c, m->wx + mw, m->wy + ty, m->ww - mw - (2*c->bw), h - (2*c->bw), 0);
-			if (ty + HEIGHT(c) < m->wh)
-				ty += HEIGHT(c);
+			h = (m->wh - ty) / (n - i) - m->gappx;
+			resize(c, m->wx + mw + m->gappx, m->wy + ty, m->ww - mw - (2*c->bw) - 2*m->gappx, h - (2*c->bw), 0);
+			if (ty + HEIGHT(c) + m->gappx < m->wh)
+				ty += HEIGHT(c) + m->gappx;
 		}
 }
 
@@ -2004,8 +2055,15 @@ updatesizehints(Client *c)
 void
 updatestatus(void)
 {
-	if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
-		strcpy(stext, "dwm-"VERSION);
+	char statustext[256];
+	time_t t = time(NULL);
+	struct tm *tm = localtime(&t);
+
+	if (!gettextprop(root, XA_WM_NAME, statustext, sizeof(statustext)))
+		strcpy(statustext, "dwm-"VERSION);
+
+	snprintf(stext, sizeof(stext), "%.200s | %02d:%02d", statustext, tm->tm_hour, tm->tm_min);
+
 	drawbar(selmon);
 }
 
