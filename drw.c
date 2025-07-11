@@ -8,6 +8,9 @@
 #include "drw.h"
 #include "util.h"
 
+#define LENGTH(X)               (sizeof X / sizeof X[0])
+#define MIN(A, B)               ((A) < (B) ? (A) : (B))
+
 #define UTF_INVALID 0xFFFD
 
 static int
