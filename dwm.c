@@ -1450,6 +1450,9 @@ void
 run(void)
 {
 	XEvent ev;
+	time_t last_time = 0;
+	time_t now;
+
 	/* main event loop */
 	XSync(dpy, False);
 	while (running) {
@@ -1461,15 +1464,18 @@ run(void)
 		tv.tv_sec = 1;
 		tv.tv_usec = 0;
 
-		int num_fds = select(xfd + 1, &fds, NULL, NULL, &tv);
-		if (num_fds > 0) {
+		if (select(xfd + 1, &fds, NULL, NULL, &tv) > 0) {
 			while(XPending(dpy)) {
 				XNextEvent(dpy, &ev);
 				if (handler[ev.type])
 					handler[ev.type](&ev); /* call handler */
 			}
-		} else if (num_fds == 0) {
+		}
+
+		now = time(NULL);
+		if (now != last_time) {
 			updatestatus();
+			last_time = now;
 		}
 	}
 }
