@@ -7,6 +7,9 @@ Requirements
 ------------
 In order to build dwm you need the Xlib header files.
 
+The default multimedia-key support additionally uses ALSA, GIO, and XRandR.
+Each backend can be disabled independently in config.mk.
+
 
 Installation
 ------------

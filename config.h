@@ -66,8 +66,6 @@ static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont,
 /* static const char *dmenucmd[] = { "qlaunch", NULL }; */
 static const char *termcmd[]  = { "st", NULL };
 static const char *fmcmd[] = { "st", "-e", "lf", NULL };
-static const char *incvol[] = {"/usr/bin/amixer", "set", "Master", "5%+", NULL};
-static const char *decvol[] = {"/usr/bin/amixer", "set", "Master", "5%-", NULL};
 
 static const Key keys[] = {
 	/* modifier                     key        function        argument */
@@ -111,8 +109,21 @@ static const Key keys[] = {
 	TAGKEYS(                        XK_8,                      7)
 	TAGKEYS(                        XK_9,                      8)
 	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} },
-	{ 0,				XF86XK_AudioLowerVolume,spawn,{.v = decvol} },
-	{ 0,				XF86XK_AudioRaiseVolume,spawn,{.v = incvol} },
+	{ 0,                            XF86XK_AudioLowerVolume, multimedia, {.i = MultimediaVolumeDown} },
+	{ 0,                            XF86XK_AudioRaiseVolume, multimedia, {.i = MultimediaVolumeUp} },
+	{ 0,                            XF86XK_AudioMute,        multimedia, {.i = MultimediaVolumeMute} },
+	{ 0,                            XF86XK_AudioMicMute,     multimedia, {.i = MultimediaMicMute} },
+	{ 0,                            XF86XK_AudioPlay,        multimedia, {.i = MultimediaPlayPause} },
+	{ 0,                            XF86XK_AudioPause,       multimedia, {.i = MultimediaPause} },
+	{ 0,                            XF86XK_AudioStop,        multimedia, {.i = MultimediaStop} },
+	{ 0,                            XF86XK_AudioPrev,        multimedia, {.i = MultimediaPrevious} },
+	{ 0,                            XF86XK_AudioNext,        multimedia, {.i = MultimediaNext} },
+	{ 0,                            XF86XK_AudioRewind,      multimedia, {.i = MultimediaRewind} },
+	{ 0,                            XF86XK_AudioForward,     multimedia, {.i = MultimediaForward} },
+	{ 0,                            XF86XK_MonBrightnessDown, multimedia, {.i = MultimediaBrightnessDown} },
+	{ 0,                            XF86XK_MonBrightnessUp,   multimedia, {.i = MultimediaBrightnessUp} },
+	{ 0,                            XF86XK_KbdBrightnessDown, multimedia, {.i = MultimediaKeyboardBrightnessDown} },
+	{ 0,                            XF86XK_KbdBrightnessUp,   multimedia, {.i = MultimediaKeyboardBrightnessUp} },
 };
 
 /* button definitions */
@@ -131,4 +142,3 @@ static const Button buttons[] = {
 	{ ClkTagBar,            MODKEY,         Button1,        tag,            {0} },
 	{ ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} },
 };
-

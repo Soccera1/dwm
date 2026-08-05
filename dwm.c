@@ -45,6 +45,7 @@
 #include <X11/Xft/Xft.h>
 
 #include "drw.h"
+#include "multimedia.h"
 #include "util.h"
 
 /* macros */
@@ -196,6 +197,7 @@ static void maprequest(XEvent *e);
 static void monocle(Monitor *m);
 static void motionnotify(XEvent *e);
 static void movemouse(const Arg *arg);
+static void multimedia(const Arg *arg);
 static Client *nexttiled(Client *c);
 static void pop(Client *c);
 static void propertynotify(XEvent *e);
@@ -1190,6 +1192,18 @@ monocle(Monitor *m)
 		snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n);
 	for (c = nexttiled(m->clients); c; c = nexttiled(c->next))
 		resize(c, m->wx, m->wy, m->ww - 2 * c->bw, m->wh - 2 * c->bw, 0);
+}
+
+void
+multimedia(const Arg *arg)
+{
+	if (fork() == 0) {
+		if (dpy)
+			close(ConnectionNumber(dpy));
+		setsid();
+		multimedia_run((enum MultimediaAction)arg->i);
+		_exit(EXIT_SUCCESS);
+	}
 }
 
 void
